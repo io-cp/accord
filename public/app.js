@@ -84,6 +84,21 @@ function enterRoom() {
   renderUsers();
 }
 
+// --- COPIAR LINK DA SALA ---
+$("codeChip").addEventListener("click", () => {
+  const currentUrl = window.location.origin + window.location.pathname;
+  const fullLink = `${currentUrl}?room=${roomCode}`;
+  
+  navigator.clipboard.writeText(fullLink).then(() => {
+    const codeLabel = $("roomCodeLabel");
+    const originalText = codeLabel.textContent;
+    codeLabel.textContent = "COPIADO!";
+    setTimeout(() => {
+      codeLabel.textContent = originalText;
+    }, 2000);
+  });
+});
+
 function registerConn(conn, name) {
   if (members.has(conn.peer)) return;
   members.set(conn.peer, { conn, name: name || "Convidado" });
