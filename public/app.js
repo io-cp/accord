@@ -99,6 +99,15 @@ $("codeChip").addEventListener("click", () => {
   });
 });
 
+// --- LER CÓDIGO DA URL AUTOMATICAMENTE ---
+window.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(window.location.search);
+  const roomParam = params.get("room");
+  if (roomParam) {
+    $("joinCode").value = roomParam.toUpperCase();
+  }
+});
+
 function registerConn(conn, name) {
   if (members.has(conn.peer)) return;
   members.set(conn.peer, { conn, name: name || "Convidado" });
