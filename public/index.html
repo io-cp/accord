@@ -6,16 +6,16 @@
 <title>P2P ScreenShare</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <style>
-:root {
-    --bg: #0d1117;           /* Fundo principal escuro profundo */
-    --panel: #161b22;        /* Sidebar e painéis levemente destacados */
-    --panel-2: #21262d;      /* Fundo de itens selecionados e modais */
-    --border: #30363d;       /* Bordas sutis para separar os painéis */
-    --text: #c9d1d9;         /* Texto cinza claro (evita o branco puro) */
-    --text-dim: #8b949e;     /* Textos secundários mais apagados */
-    --accent: #238636;       /* Verde confortável para o botão de ação */
-    --accent-2: #2ea043;     /* Verde ligeiramente mais claro no hover */
-    --red: #da3633;          /* Vermelho dessaturado para 'Parar' */
+  :root {
+    --bg: #0d1117;           
+    --panel: #161b22;        
+    --panel-2: #21262d;      
+    --border: #30363d;       
+    --text: #c9d1d9;         
+    --text-dim: #8b949e;     
+    --accent: #238636;       
+    --accent-2: #2ea043;     
+    --red: #da3633;          
     --radius: 12px;
     --header-h: 60px;
   }
@@ -33,12 +33,12 @@
   button { font-family: inherit; }
 
   #landing { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
-  .card { width: 100%; max-width: 380px; background: var(--panel); padding: 30px; border-radius: var(--radius); box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid var(--border); display: flex; flex-direction: column; }
+  .card { width: 100%; max-width: 380px; background: var(--panel); padding: 30px; border-radius: var(--radius); box-shadow: 0 4px 20px rgba(0,0,0,0.2); border: 1px solid var(--border); display: flex; flex-direction: column; }
   .logo h1 { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
   .sub { color: var(--text-dim); font-size: 13px; margin-bottom: 24px; line-height: 1.4; }
   .field { margin-bottom: 14px; text-align: left; }
   .field label { display: block; font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; margin-bottom: 6px; }
-  input[type=text] { width: 100%; background: #fff; border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 12px; font-size: 14px; outline: none; }
+  input[type=text] { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 12px; font-size: 14px; outline: none; }
   input[type=text]:focus { border-color: var(--accent); }
   #joinCode { text-transform: uppercase; letter-spacing: 4px; font-family: monospace; font-weight: 700; text-align: center; }
 
@@ -55,10 +55,15 @@
   .codeChip { display: flex; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; cursor: pointer; color: var(--text); }
   .codeChip .code { font-family: monospace; font-size: 14px; font-weight: 700; color: var(--accent-2); }
   .spacer { flex: 1; }
-  #shareBtn { border: none; border-radius: 6px; padding: 8px 16px; font-size: 13.5px; font-weight: 700; cursor: pointer; color: #fff; background: var(--accent); }
+  
+  /* Estilos para os novos botões de controle na barra superior */
+  .header-btn { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13.5px; font-weight: 600; transition: 0.2s; }
+  .header-btn:hover { background: var(--panel-2); }
+  
+  #shareBtn { border: none; border-radius: 6px; padding: 8px 16px; font-size: 13.5px; font-weight: 700; cursor: pointer; color: #fff; background: var(--accent); margin-left: 10px; }
   #shareBtn.sharing { background: var(--red); }
   #leaveBtn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-  #leaveBtn:hover { background: #ffebee; color: var(--red); border-color: var(--red); }
+  #leaveBtn:hover { background: rgba(218, 54, 51, 0.1); color: var(--red); border-color: var(--red); }
 
   #main { flex: 1; min-height: 0; display: flex; }
   #sidebar { width: 260px; flex-shrink: 0; border-right: 1px solid var(--border); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
@@ -109,10 +114,17 @@
     <button class="codeChip" id="codeChip" title="Copiar código/link">
       <span>SALA:</span> <span class="code" id="roomCodeLabel"></span>
     </button>
+    
     <div class="spacer"></div>
+    
+    <!-- Novos botões de controle de voz -->
+    <button id="micBtn" class="header-btn" title="Ativar Microfone">🎤 Voz</button>
+    <button id="deafenBtn" class="header-btn" title="Silenciar todos os microfones">🔇 Safe Guard</button>
+    
     <button id="shareBtn"><span class="btnLabel">Compartilhar Tela</span></button>
     <button id="leaveBtn">Sair</button>
   </header>
+  
   <div id="main">
     <aside id="sidebar">
       <div class="sideHead">Participantes</div>

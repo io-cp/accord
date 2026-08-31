@@ -14,6 +14,9 @@ const sharingPeers = new Set();
 const tiles = new Map();
 let focusedKey = null;
 let localStream = null;
+let micStream = null;
+let deafenAll = false; // Estado do Safe Guard
+const voiceElements = new Map(); // Guarda as tags <audio> de quem está falando
 
 const $ = id => document.getElementById(id);
 const landing = $("landing"), roomEl = $("room"), grid = $("grid"), emptyState = $("emptyState");
@@ -64,16 +67,41 @@ function startPeer(fixedId) {
     conn.on("open", () => registerConn(conn, conn.metadata && conn.metadata.name));
   });
 
-  peer.on("call", call => {
+peer.on("call", call => {
     call.answer(); 
-    incomingCalls.set(call.peer, call);
+    
+    // Identifica se a chamada é de microfone pelo metadado
+    const isVoice = call.metadata && call.metadata.type === 'voice';
+
+    if (!isVoice) incomingCalls.set(call.peer, call);
     
     call.on("stream", stream => {
-      sharingPeers.add(call.peer);
-      addTile(call.peer, stream);
+      if (isVoice) {
+        // Cria um reprodutor de áudio invisível para a voz
+        if (!voiceElements.has(call.peer)) {
+          const audio = document.createElement("audio");
+          audio.srcObject = stream;
+          audio.autoplay = true;
+          audio.muted = deafenAll; // Aplica o Safe Guard imediatamente se estiver ativo
+          document.body.appendChild(audio);
+          voiceElements.set(call.peer, audio);
+        }
+      } else {
+        // Lógica normal de tela
+        sharingPeers.add(call.peer);
+        addTile(call.peer, stream);
+      }
     });
     
-    call.on("close", () => removeTile(call.peer));
+    call.on("close", () => {
+      if (isVoice) {
+        const audio = voiceElements.get(call.peer);
+        if (audio) audio.remove();
+        voiceElements.delete(call.peer);
+      } else {
+        removeTile(call.peer);
+      }
+    });
   });
 }
 
@@ -120,6 +148,12 @@ function registerConn(conn, name) {
   }
 
   if (localStream) callPeer(conn.peer);
+
+  function callPeerVoice(id) {
+  if (!micStream) return;
+  // O segredo está aqui: enviamos a tag type: 'voice'
+  peer.call(id, micStream, { metadata: { type: 'voice' } });
+}
 
   conn.on("data", msg => handleData(conn.peer, msg));
   conn.on("close", () => dropMember(conn.peer));
@@ -300,3 +334,43 @@ function renderUsers() {
 }
 
 $("leaveBtn").addEventListener("click", () => location.reload());
+
+// --- CONTROLE DE MICROFONE ---
+$("micBtn").addEventListener("click", async () => {
+  if (micStream) {
+    // Muta ou desmuta a própria trilha sem derrubar a conexão
+    const track = micStream.getAudioTracks()[0];
+    track.enabled = !track.enabled;
+    
+    $("micBtn").style.background = track.enabled ? "var(--accent)" : "transparent";
+    $("micBtn").style.color = track.enabled ? "#fff" : "var(--text)";
+  } else {
+    try {
+      // Pede permissão e liga o microfone pela primeira vez
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      
+      $("micBtn").style.background = "var(--accent)";
+      $("micBtn").style.color = "#fff";
+      
+      // Liga para todo mundo na sala enviando a voz
+      for (const id of members.keys()) callPeerVoice(id);
+    } catch (e) {
+      console.warn("Acesso ao microfone negado.");
+    }
+  }
+});
+
+// --- SAFE GUARD (DESATIVAR 100% A VOZ ALHEIA) ---
+$("deafenBtn").addEventListener("click", () => {
+  deafenAll = !deafenAll;
+  
+  // Atualiza o botão visualmente (Vermelho quando ativado)
+  $("deafenBtn").style.background = deafenAll ? "var(--red)" : "transparent";
+  $("deafenBtn").style.color = deafenAll ? "#fff" : "var(--text)";
+  $("deafenBtn").innerText = deafenAll ? "🔇 Ouvindo Nada" : "🔇 Safe Guard";
+
+  // Varre todos os áudios recebidos e corta o som na sua máquina
+  voiceElements.forEach(audio => {
+    audio.muted = deafenAll;
+  });
+});
