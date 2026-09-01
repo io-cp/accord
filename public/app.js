@@ -127,22 +127,25 @@ function startPeer(fixedId) {
   });
 
   // Tratamento de erro visível caso o Host esteja offline
-  peer.on("error", (err) => {
+peer.on("error", (err) => {
     console.warn("Erro no PeerJS:", err.type);
     const errorEl = $("landingError");
     if (errorEl) {
        if (err.type === "peer-unavailable") {
           errorEl.textContent = "Sala não encontrada. O Host está online?";
+       } else if (err.type === "unavailable-id") {
+          errorEl.textContent = "⚠️ Este código de sala já está em uso! Feche outras abas antigas ou gere um novo link.";
        } else {
-          errorEl.textContent = "Erro de conexão P2P. Verifique sua rede.";
+          errorEl.textContent = "Erro de conexão P2P: " + err.type;
        }
     }
 
-    const btn = $("joinBtn");
-    if (btn) {
-       btn.textContent = "Entrar";
-       btn.style.opacity = "1";
-       btn.style.pointerEvents = "auto";
+    // Restaura os botões caso ocorra erro
+    const joinBtn = $("joinBtn");
+    if (joinBtn) {
+       joinBtn.textContent = "Entrar";
+       joinBtn.style.opacity = "1";
+       joinBtn.style.pointerEvents = "auto";
     }
   });
 }
