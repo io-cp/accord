@@ -26,9 +26,7 @@ function randomCode() {
 }
 
 function getName() {
-  const input = $("nameInput");
-  const name = input ? input.value.trim() : "";
-  return name || "Convidado-" + Math.floor(Math.random() * 900 + 100);
+  return $("nameInput").value.trim() || "Convidado-" + Math.floor(Math.random() * 900 + 100);
 }
 
 $("createBtn").addEventListener("click", () => {
@@ -77,28 +75,6 @@ function startPeer(fixedId) {
     
     call.on("close", () => removeTile(call.peer));
   });
-
-  peer.on("error", (err) => {
-    console.warn("Erro no PeerJS:", err);
-    alert("Erro na conexão P2P: " + err.type);
-  });
-}
-
-function registerConn(conn, remoteName) {
-  const id = conn.peer;
-  members.set(id, { conn, name: remoteName || "Convidado" });
-
-  conn.on("data", data => handleData(id, data));
-  conn.on("close", () => dropMember(id));
-
-  conn.send({ type: "hello", name: myName });
-
-  if (isHost) {
-    const list = [...members.keys(), peer.id];
-    broadcast({ type: "members", list });
-  }
-
-  renderUsers();
 }
 
 function enterRoom() {
@@ -123,6 +99,33 @@ $("codeChip").addEventListener("click", () => {
   });
 });
 
+// --- LER CÓDIGO DA URL AUTOMATICAMENTE ---
+window.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(window.location.search);
+  const roomParam = params.get("room");
+  if (roomParam) {
+    $("joinCode").value = roomParam.toUpperCase();
+  }
+});
+
+function registerConn(conn, name) {
+  if (members.has(conn.peer)) return;
+  members.set(conn.peer, { conn, name: name || "Convidado" });
+
+  conn.send({ type: "hello", name: myName });
+
+  if (isHost) {
+    const others = [...members.keys()].filter(id => id !== conn.peer);
+    conn.send({ type: "members", list: others });
+  }
+
+  if (localStream) callPeer(conn.peer);
+
+  conn.on("data", msg => handleData(conn.peer, msg));
+  conn.on("close", () => dropMember(conn.peer));
+  renderUsers();
+}
+
 function handleData(fromId, msg) {
   if (msg.type === "hello") {
     const m = members.get(fromId);
@@ -131,10 +134,7 @@ function handleData(fromId, msg) {
     for (const id of msg.list || []) {
       if (id !== peer.id && !members.has(id)) {
         const c = peer.connect(id, { metadata: { name: myName } });
-        c.on("open", () => {
-          registerConn(c, null);
-          if (localStream) callPeer(id);
-        });
+        c.on("open", () => registerConn(c, null));
       }
     }
   } else if (msg.type === "share-stopped") {
