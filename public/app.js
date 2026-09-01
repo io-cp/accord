@@ -110,8 +110,8 @@ function enterRoom() {
 
 // --- COPIAR LINK DA SALA ---
 $("codeChip").addEventListener("click", () => {
-  const baseUrl = window.location.href.split('?')[0];
-  const fullLink = `${baseUrl}?room=${roomCode}`;
+  const currentUrl = window.location.origin + window.location.pathname;
+  const fullLink = `${currentUrl}?room=${roomCode}`;
   
   navigator.clipboard.writeText(fullLink).then(() => {
     const codeLabel = $("roomCodeLabel");
