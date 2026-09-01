@@ -159,23 +159,53 @@ $("codeChip").addEventListener("click", () => {
 window.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
   const roomParam = params.get("room");
+  const hostParam = params.get("host");
   const nameParam = params.get("name");
 
-  // 1. Preenche o nome se vier na URL (decodificando espaços/acentos)
   if (nameParam) {
     $("nameInput").value = decodeURIComponent(nameParam);
   }
 
-  // 2. Se a URL tiver sala, adapta a tela para o modo "Convidado/Join"
+  // --- MODO HOST (Dono da sala via Discord) ---
+  if (hostParam) {
+    const code = hostParam.toUpperCase();
+
+    // Oculta a área de entrar como convidado
+    const divider = document.querySelector(".divider");
+    if (divider) divider.style.display = "none";
+    const joinRow = document.querySelector(".joinRow");
+    if (joinRow) joinRow.style.display = "none";
+
+    // Adapta o botão para usar o código fixo do Discord
+    const createBtn = $("createBtn");
+    createBtn.textContent = `Iniciar Sala do Discord (${code})`;
+
+    // Cria um clone do botão para remover o evento de clique original (que gerava código aleatório)
+    const newBtn = createBtn.cloneNode(true);
+    createBtn.parentNode.replaceChild(newBtn, createBtn);
+
+    // Adiciona o novo evento forçando o uso do código do bot
+    newBtn.addEventListener("click", () => {
+      const name = validateName(); 
+      if (!name) return;
+
+      myName = name;
+      roomCode = code; // Usa o código da URL
+      isHost = true;
+      startPeer(PREFIX + roomCode);
+    });
+
+    return; // Encerra a execução para não aplicar regras de convidado
+  }
+
+  // --- MODO CONVIDADO (Amigos via Discord) ---
   if (roomParam) {
     $("joinCode").value = roomParam.toUpperCase();
 
-    // Esconde a opção de criar sala e a divisória
     $("createBtn").style.display = "none";
     const divider = document.querySelector(".divider");
     if (divider) divider.style.display = "none";
 
-    // Expande o campo e o botão de entrar para ocuparem a largura total
     const joinRow = document.querySelector(".joinRow");
     if (joinRow) {
       joinRow.style.display = "flex";
