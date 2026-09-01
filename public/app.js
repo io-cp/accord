@@ -94,6 +94,8 @@ function startPeer(fixedId) {
   peer.on("open", () => {
     if (isHost) {
       enterRoom();
+      // Assim que a sala abrir no navegador, envia o sinal para o bot
+      notifyBotRoomReady(); 
     } else {
       const conn = peer.connect(PREFIX + roomCode, { metadata: { name: myName } });
       conn.on("open", () => { registerConn(conn, null); enterRoom(); });
@@ -115,6 +117,20 @@ function startPeer(fixedId) {
     
     call.on("close", () => removeTile(call.peer));
   });
+}
+
+// --- INTEGRAÇÃO COM O WEBHOOK DO DISCORD BOT ---
+function notifyBotRoomReady() {
+  const params = new URLSearchParams(window.location.search);
+  
+  // Só dispara a requisição se quem estiver abrindo for o Host gerado pelo bot
+  if (params.get("host")) { 
+    fetch("http://localhost:8080/webhook/room_ready", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room: roomCode })
+    }).catch(err => console.warn("Erro ao comunicar com o Bot:", err));
+  }
 }
 
 function enterRoom() {
