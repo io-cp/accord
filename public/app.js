@@ -198,6 +198,7 @@ window.addEventListener("DOMContentLoaded", () => {
     return; // Encerra a execução para não aplicar regras de convidado
   }
 
+  
   // --- MODO CONVIDADO (Amigos via Discord) ---
   if (roomParam) {
     $("joinCode").value = roomParam.toUpperCase();
