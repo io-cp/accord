@@ -40,7 +40,7 @@ function validateName() {
   return name;
 }
 
-// --- BOTÃO CRIAR SALA ---
+// --- BOTÃO CRIAR SALA (Modo Padrão / Manual) ---
 $("createBtn").addEventListener("click", () => {
   const name = validateName();
   if (!name) return;
@@ -52,6 +52,8 @@ $("createBtn").addEventListener("click", () => {
 });
 
 // --- BOTÃO ENTRAR NA SALA ---
+$("joinBtn").addEventListener("click", joinRoom);
+
 function joinRoom() {
   const name = validateName();
   if (!name) return;
@@ -66,32 +68,13 @@ function joinRoom() {
   myName = name;
   roomCode = code;
   isHost = false;
-  startPeer(null);
-}
 
-$("createBtn").addEventListener("click", () => {
-  myName = validateName();
-  roomCode = randomCode();
-  isHost = true;
-  startPeer(PREFIX + roomCode);
-});
+  // Feedback visual de carregamento para evitar cliques duplicados
+  $("joinBtn").textContent = "Conectando...";
+  $("joinBtn").style.opacity = "0.7";
+  $("joinBtn").style.pointerEvents = "none";
+  if ($("landingError")) $("landingError").textContent = "";
 
-$("joinBtn").addEventListener("click", joinRoom);
-
-function joinRoom() {
-  const name = validateName();
-  if (!name) return; // É essa linha que bloqueia o acesso sem nome
-
-  const code = $("joinCode").value.trim().toUpperCase();
-  if (!code) {
-    if ($("landingError")) $("landingError").textContent = "Por favor, digite o código da sala.";
-    $("joinCode").focus();
-    return;
-  }
-
-  myName = name;
-  roomCode = code;
-  isHost = false;
   startPeer(null);
 }
 
@@ -102,7 +85,6 @@ function startPeer(fixedId) {
   peer.on("open", () => {
     if (isHost) {
       enterRoom();
-      // Assim que a sala abrir no navegador, envia o sinal para o bot
       notifyBotRoomReady(); 
     } else {
       const conn = peer.connect(PREFIX + roomCode, { metadata: { name: myName } });
@@ -125,13 +107,32 @@ function startPeer(fixedId) {
     
     call.on("close", () => removeTile(call.peer));
   });
+
+  // Tratamento de erro visível caso o Host esteja offline
+  peer.on("error", (err) => {
+    console.warn("Erro no PeerJS:", err.type);
+    const errorEl = $("landingError");
+    if (errorEl) {
+       if (err.type === "peer-unavailable") {
+          errorEl.textContent = "Sala não encontrada. O Host está online?";
+       } else {
+          errorEl.textContent = "Erro de conexão P2P. Verifique sua rede.";
+       }
+    }
+
+    const btn = $("joinBtn");
+    if (btn) {
+       btn.textContent = "Entrar";
+       btn.style.opacity = "1";
+       btn.style.pointerEvents = "auto";
+    }
+  });
 }
 
 // --- INTEGRAÇÃO COM O WEBHOOK DO DISCORD BOT ---
 function notifyBotRoomReady() {
   const params = new URLSearchParams(window.location.search);
   
-  // Só dispara a requisição se quem estiver abrindo for o Host gerado pelo bot
   if (params.get("host")) { 
     fetch("http://localhost:8080/webhook/room_ready", {
       method: "POST",
@@ -178,35 +179,31 @@ window.addEventListener("DOMContentLoaded", () => {
   if (hostParam) {
     const code = hostParam.toUpperCase();
 
-    // Oculta a área de entrar como convidado
     const divider = document.querySelector(".divider");
     if (divider) divider.style.display = "none";
     const joinRow = document.querySelector(".joinRow");
     if (joinRow) joinRow.style.display = "none";
 
-    // Adapta o botão para usar o código fixo do Discord
     const createBtn = $("createBtn");
     createBtn.textContent = `Iniciar Sala do Discord (${code})`;
 
-    // Cria um clone do botão para remover o evento de clique original (que gerava código aleatório)
+    // Substitui o botão para limpar qualquer evento anterior e fixar o código do bot
     const newBtn = createBtn.cloneNode(true);
     createBtn.parentNode.replaceChild(newBtn, createBtn);
 
-    // Adiciona o novo evento forçando o uso do código do bot
     newBtn.addEventListener("click", () => {
       const name = validateName(); 
       if (!name) return;
 
       myName = name;
-      roomCode = code; // Usa o código da URL
+      roomCode = code; 
       isHost = true;
       startPeer(PREFIX + roomCode);
     });
 
-    return; // Encerra a execução para não aplicar regras de convidado
+    return; 
   }
 
-  
   // --- MODO CONVIDADO (Amigos via Discord) ---
   if (roomParam) {
     $("joinCode").value = roomParam.toUpperCase();
