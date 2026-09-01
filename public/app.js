@@ -361,6 +361,26 @@ function layoutGrid() {
   grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
 }
 
+// --- GERENCIAMENTO DE CONEXÕES DE DADOS P2P ---
+function registerConn(conn, remoteName) {
+  const id = conn.peer;
+  members.set(id, { conn, name: remoteName || "Convidado" });
+
+  conn.on("data", data => handleData(id, data));
+  conn.on("close", () => dropMember(id));
+
+  // Envia o nome atual para o peer conectado
+  conn.send({ type: "hello", name: myName });
+
+  if (isHost) {
+    // Host atualiza a lista para todos na sala
+    const list = [...members.keys(), peer.id];
+    broadcast({ type: "members", list });
+  }
+
+  renderUsers();
+}
+
 function renderUsers() {
   const list = $("userList");
   list.textContent = "";
