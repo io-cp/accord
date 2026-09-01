@@ -1,0 +1,25 @@
+name: Deploy Preview
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - staging
+
+permissions:
+  contents: write
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Preview Folder
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          destination_dir: previews/${{ github.ref_name }}
+          keep_files: true
