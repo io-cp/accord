@@ -25,8 +25,47 @@ function randomCode() {
   return Array.from(buf, n => CODE_CHARS[n % CODE_CHARS.length]).join("");
 }
 
-function getName() {
-  return $("nameInput").value.trim() || "Convidado-" + Math.floor(Math.random() * 900 + 100);
+function validateName() {
+  const name = $("nameInput").value.trim();
+  const errorEl = $("landingError");
+
+  if (!name) {
+    if (errorEl) errorEl.textContent = "Por favor, digite seu nome para continuar.";
+    $("nameInput").focus();
+    return null;
+  }
+
+  if (errorEl) errorEl.textContent = "";
+  return name;
+}
+
+$("createBtn").addEventListener("click", () => {
+  const name = validateName();
+  if (!name) return;
+
+  myName = name;
+  roomCode = randomCode();
+  isHost = true;
+  startPeer(PREFIX + roomCode);
+});
+
+$("joinBtn").addEventListener("click", joinRoom);
+
+function joinRoom() {
+  const name = validateName();
+  if (!name) return;
+
+  const code = $("joinCode").value.trim().toUpperCase();
+  if (!code) {
+    if ($("landingError")) $("landingError").textContent = "Por favor, digite o código da sala.";
+    $("joinCode").focus();
+    return;
+  }
+
+  myName = name;
+  roomCode = code;
+  isHost = false;
+  startPeer(null);
 }
 
 $("createBtn").addEventListener("click", () => {
@@ -113,21 +152,37 @@ $("codeChip").addEventListener("click", () => {
 // --- ROTEAMENTO DE INICIALIZAÇÃO VIA URL ---
 window.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
-  
-  if (params.has("host") && params.has("name")) {
-    // Rota 1: HOST
-    myName = decodeURIComponent(params.get("name"));
-    roomCode = params.get("host").toUpperCase();
+  const roomParam = params.get("room");
+  const nameParam = params.get("name");
+  const hostParam = params.get("host");
+
+  if (nameParam) {
+    $("nameInput").value = decodeURIComponent(nameParam);
+  }
+
+  if (hostParam && nameParam) {
+    // Rota do Host (veio pelo botão privado do bot)
+    myName = decodeURIComponent(nameParam);
+    roomCode = hostParam.toUpperCase();
     isHost = true;
-    
     startPeer(PREFIX + roomCode);
     window.history.replaceState({}, document.title, window.location.pathname);
-  } 
-  else if (params.has("room")) {
-    // Rota 2: CONVIDADO
+  } else if (roomParam) {
+    // Rota do Convidado (veio pelo link público)
     isHost = false;
-    $("joinCode").value = params.get("room").toUpperCase();
-    $("nameInput").focus(); 
+    $("joinCode").value = roomParam.toUpperCase();
+    
+    // Ajuste visual da landing para convidados via link direto
+    $("createBtn").style.display = "none";
+    const divider = document.querySelector(".divider");
+    if (divider) divider.style.display = "none";
+
+    const joinRow = document.querySelector(".joinRow");
+    if (joinRow) {
+      joinRow.style.display = "flex";
+      $("joinCode").style.flex = "1";
+      $("joinBtn").style.flex = "1";
+    }
   }
 });
 
