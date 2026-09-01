@@ -79,9 +79,17 @@ $("createBtn").addEventListener("click", () => {
 $("joinBtn").addEventListener("click", joinRoom);
 
 function joinRoom() {
+  const name = validateName();
+  if (!name) return; // É essa linha que bloqueia o acesso sem nome
+
   const code = $("joinCode").value.trim().toUpperCase();
-  if (!code) return;
-  myName = validateName();
+  if (!code) {
+    if ($("landingError")) $("landingError").textContent = "Por favor, digite o código da sala.";
+    $("joinCode").focus();
+    return;
+  }
+
+  myName = name;
   roomCode = code;
   isHost = false;
   startPeer(null);
