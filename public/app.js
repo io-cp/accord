@@ -87,9 +87,20 @@ function startPeer(fixedId) {
       enterRoom();
       notifyBotRoomReady(); 
     } else {
-      const conn = peer.connect(PREFIX + roomCode, { metadata: { name: myName } });
-      conn.on("open", () => { registerConn(conn, null); enterRoom(); });
-    }
+      const hostPeerId = PREFIX + roomCode;
+      const conn = peer.connect(hostPeerId, { metadata: { name: myName } });
+  
+      conn.on("open", () => { 
+        registerConn(conn, "Host da Sala"); 
+        enterRoom(); 
+      });
+
+      conn.on("error", (err) => {
+        console.warn("Erro na conexão com o Host:", err);
+        if ($("landingError")) $("landingError").textContent = "Sala não encontrada ou Host offline.";
+        resetJoinButton();
+      });
+        }
   });
 
   conn.on("error", (err) => {
@@ -240,12 +251,19 @@ window.addEventListener("DOMContentLoaded", () => {
 function handleData(fromId, msg) {
   if (msg.type === "hello") {
     const m = members.get(fromId);
-    if (m) { m.name = msg.name; renderUsers(); }
+    if (m) { 
+      m.name = msg.name; 
+      renderUsers(); 
+    }
   } else if (msg.type === "members") {
+    // Evita loop de reconexão se já estiver conectado
     for (const id of msg.list || []) {
       if (id !== peer.id && !members.has(id)) {
         const c = peer.connect(id, { metadata: { name: myName } });
-        c.on("open", () => registerConn(c, null));
+        c.on("open", () => {
+          registerConn(c, null);
+          if (localStream) callPeer(id);
+        });
       }
     }
   } else if (msg.type === "share-stopped") {
@@ -380,16 +398,16 @@ function layoutGrid() {
 // --- GERENCIAMENTO DE CONEXÕES DE DADOS P2P ---
 function registerConn(conn, remoteName) {
   const id = conn.peer;
-  members.set(id, { conn, name: remoteName || "Convidado" });
+  // Se o nome vier vazio, define temporariamente como "Participante"
+  members.set(id, { conn, name: remoteName && remoteName !== "Convidado" ? remoteName : "Participante" });
 
   conn.on("data", data => handleData(id, data));
   conn.on("close", () => dropMember(id));
 
-  // Envia o nome atual para o peer conectado
+  // Envia o próprio nome para o outro lado da conexão imediatamente
   conn.send({ type: "hello", name: myName });
 
   if (isHost) {
-    // Host atualiza a lista para todos na sala
     const list = [...members.keys(), peer.id];
     broadcast({ type: "members", list });
   }
