@@ -25,56 +25,27 @@ function randomCode() {
   return Array.from(buf, n => CODE_CHARS[n % CODE_CHARS.length]).join("");
 }
 
-// --- VALIDAÇÃO DE NOME OBRIGATÓRIO ---
-function validateName() {
-  const name = $("nameInput").value.trim();
-  const errorEl = $("landingError");
-
-  if (!name) {
-    if (errorEl) errorEl.textContent = "Por favor, digite seu nome para continuar.";
-    $("nameInput").focus();
-    return null;
-  }
-
-  if (errorEl) errorEl.textContent = "";
-  return name;
+function getName() {
+  const input = $("nameInput");
+  const name = input ? input.value.trim() : "";
+  return name || "Convidado-" + Math.floor(Math.random() * 900 + 100);
 }
 
-// --- BOTÃO CRIAR SALA (Modo Padrão / Manual) ---
 $("createBtn").addEventListener("click", () => {
-  const name = validateName();
-  if (!name) return;
-
-  myName = name;
+  myName = getName();
   roomCode = randomCode();
   isHost = true;
   startPeer(PREFIX + roomCode);
 });
 
-// --- BOTÃO ENTRAR NA SALA ---
 $("joinBtn").addEventListener("click", joinRoom);
 
 function joinRoom() {
-  const name = validateName();
-  if (!name) return;
-
   const code = $("joinCode").value.trim().toUpperCase();
-  if (!code) {
-    if ($("landingError")) $("landingError").textContent = "Por favor, digite o código da sala.";
-    $("joinCode").focus();
-    return;
-  }
-
-  myName = name;
+  if (!code) return;
+  myName = getName();
   roomCode = code;
   isHost = false;
-
-  // Feedback visual de carregamento para evitar cliques duplicados
-  $("joinBtn").textContent = "Conectando...";
-  $("joinBtn").style.opacity = "0.7";
-  $("joinBtn").style.pointerEvents = "none";
-  if ($("landingError")) $("landingError").textContent = "";
-
   startPeer(null);
 }
 
@@ -85,30 +56,11 @@ function startPeer(fixedId) {
   peer.on("open", () => {
     if (isHost) {
       enterRoom();
-      notifyBotRoomReady(); 
     } else {
-      const hostPeerId = PREFIX + roomCode;
-      const conn = peer.connect(hostPeerId, { metadata: { name: myName } });
-  
-      conn.on("open", () => { 
-        registerConn(conn, "Host da Sala"); 
-        enterRoom(); 
-      });
-
-      conn.on("error", (err) => {
-        console.warn("Erro na conexão com o Host:", err);
-        if ($("landingError")) $("landingError").textContent = "Sala não encontrada ou Host offline.";
-        resetJoinButton();
-      });
-        }
+      const conn = peer.connect(PREFIX + roomCode, { metadata: { name: myName } });
+      conn.on("open", () => { registerConn(conn, null); enterRoom(); });
+    }
   });
-
-  conn.on("error", (err) => {
-      console.warn("Erro na conexão com o Host:", err);
-      const errorEl = $("landingError");
-      if (errorEl) errorEl.textContent = "Falha ao estabelecer conexão com a sala.";
-      resetJoinButton();
-    });
 
   peer.on("connection", conn => {
     conn.on("open", () => registerConn(conn, conn.metadata && conn.metadata.name));
@@ -126,50 +78,27 @@ function startPeer(fixedId) {
     call.on("close", () => removeTile(call.peer));
   });
 
-  // Tratamento de erro visível caso o Host esteja offline
-peer.on("error", (err) => {
-    console.warn("Erro no PeerJS:", err.type);
-    const errorEl = $("landingError");
-    if (errorEl) {
-       if (err.type === "peer-unavailable") {
-          errorEl.textContent = "Sala não encontrada. O Host está online?";
-       } else if (err.type === "unavailable-id") {
-          errorEl.textContent = "⚠️ Este código de sala já está em uso! Feche outras abas antigas ou gere um novo link.";
-       } else {
-          errorEl.textContent = "Erro de conexão P2P: " + err.type;
-       }
-    }
-
-    // Restaura os botões caso ocorra erro
-    const joinBtn = $("joinBtn");
-    if (joinBtn) {
-       joinBtn.textContent = "Entrar";
-       joinBtn.style.opacity = "1";
-       joinBtn.style.pointerEvents = "auto";
-    }
+  peer.on("error", (err) => {
+    console.warn("Erro no PeerJS:", err);
+    alert("Erro na conexão P2P: " + err.type);
   });
 }
 
-// --- INTEGRAÇÃO COM O WEBHOOK DO DISCORD BOT ---
-function notifyBotRoomReady() {
-  const params = new URLSearchParams(window.location.search);
-  
-  if (params.get("host")) { 
-    fetch("http://localhost:8080/webhook/room_ready", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ room: roomCode })
-    }).catch(err => console.warn("Erro ao comunicar com o Bot:", err));
-  }
-}
+function registerConn(conn, remoteName) {
+  const id = conn.peer;
+  members.set(id, { conn, name: remoteName || "Convidado" });
 
-function resetJoinButton() {
-  const btn = $("joinBtn");
-  if (btn) {
-    btn.textContent = "Entrar";
-    btn.style.opacity = "1";
-    btn.style.pointerEvents = "auto";
+  conn.on("data", data => handleData(id, data));
+  conn.on("close", () => dropMember(id));
+
+  conn.send({ type: "hello", name: myName });
+
+  if (isHost) {
+    const list = [...members.keys(), peer.id];
+    broadcast({ type: "members", list });
   }
+
+  renderUsers();
 }
 
 function enterRoom() {
@@ -179,12 +108,8 @@ function enterRoom() {
   renderUsers();
 }
 
-// --- COPIAR LINK DA SALA ---
 $("codeChip").addEventListener("click", () => {
-  const currentUrl = window.location.origin + window.location.pathname;
-  const fullLink = `${currentUrl}?room=${roomCode}`;
-  
-  navigator.clipboard.writeText(fullLink).then(() => {
+  navigator.clipboard.writeText(roomCode).then(() => {
     const codeLabel = $("roomCodeLabel");
     const originalText = codeLabel.textContent;
     codeLabel.textContent = "COPIADO!";
@@ -194,72 +119,11 @@ $("codeChip").addEventListener("click", () => {
   });
 });
 
-// --- LER CÓDIGO DA URL AUTOMATICAMENTE ---
-window.addEventListener("DOMContentLoaded", () => {
-  const params = new URLSearchParams(window.location.search);
-  const roomParam = params.get("room");
-  const hostParam = params.get("host");
-  const nameParam = params.get("name");
-
-  if (nameParam) {
-    $("nameInput").value = decodeURIComponent(nameParam);
-  }
-
-  // --- MODO HOST (Dono da sala via Discord) ---
-  if (hostParam) {
-    const code = hostParam.toUpperCase();
-
-    const divider = document.querySelector(".divider");
-    if (divider) divider.style.display = "none";
-    const joinRow = document.querySelector(".joinRow");
-    if (joinRow) joinRow.style.display = "none";
-
-    const createBtn = $("createBtn");
-    createBtn.textContent = `Iniciar Sala do Discord (${code})`;
-
-    // Substitui o botão para limpar qualquer evento anterior e fixar o código do bot
-    const newBtn = createBtn.cloneNode(true);
-    createBtn.parentNode.replaceChild(newBtn, createBtn);
-
-    newBtn.addEventListener("click", () => {
-      const name = validateName(); 
-      if (!name) return;
-
-      myName = name;
-      roomCode = code; 
-      isHost = true;
-      startPeer(PREFIX + roomCode);
-    });
-
-    return; 
-  }
-
-  // --- MODO CONVIDADO (Amigos via Discord) ---
-  if (roomParam) {
-    $("joinCode").value = roomParam.toUpperCase();
-
-    $("createBtn").style.display = "none";
-    const divider = document.querySelector(".divider");
-    if (divider) divider.style.display = "none";
-
-    const joinRow = document.querySelector(".joinRow");
-    if (joinRow) {
-      joinRow.style.display = "flex";
-      $("joinCode").style.flex = "1";
-      $("joinBtn").style.flex = "1";
-    }
-  }
-});
-
 function handleData(fromId, msg) {
   if (msg.type === "hello") {
     const m = members.get(fromId);
-    if (m) { 
-      m.name = msg.name; 
-      renderUsers(); 
-    }
+    if (m) { m.name = msg.name; renderUsers(); }
   } else if (msg.type === "members") {
-    // Evita loop de reconexão se já estiver conectado
     for (const id of msg.list || []) {
       if (id !== peer.id && !members.has(id)) {
         const c = peer.connect(id, { metadata: { name: myName } });
@@ -396,26 +260,6 @@ function layoutGrid() {
 
   const cols = Math.ceil(Math.sqrt(n));
   grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-}
-
-// --- GERENCIAMENTO DE CONEXÕES DE DADOS P2P ---
-function registerConn(conn, remoteName) {
-  const id = conn.peer;
-  // Se o nome vier vazio, define temporariamente como "Participante"
-  members.set(id, { conn, name: remoteName && remoteName !== "Convidado" ? remoteName : "Participante" });
-
-  conn.on("data", data => handleData(id, data));
-  conn.on("close", () => dropMember(id));
-
-  // Envia o próprio nome para o outro lado da conexão imediatamente
-  conn.send({ type: "hello", name: myName });
-
-  if (isHost) {
-    const list = [...members.keys(), peer.id];
-    broadcast({ type: "members", list });
-  }
-
-  renderUsers();
 }
 
 function renderUsers() {
