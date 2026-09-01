@@ -51,29 +51,25 @@ function startPeer(fixedId) {
   peer = fixedId ? new Peer(fixedId, { config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] } })
                  : new Peer({ config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] } });
 
-  peer.on("open", () => {
+peer.on("open", () => {
     if (isHost) {
-      enterRoom();
+      enterRoom(); // Transição visual do HTML
+      
+      // Dispara o sinal para liberar a mensagem pública no Discord
+      // Lembre-se de trocar localhost pelo IP da sua VPS depois
+      fetch("http://localhost:8080/webhook/room_ready", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ room: roomCode })
+      })
+      .then(() => console.log("Bot notificado com sucesso!"))
+      .catch(err => console.warn("Aviso: Falha ao notificar o bot.", err));
+      
     } else {
+      // O fluxo do convidado continua o mesmo
       const conn = peer.connect(PREFIX + roomCode, { metadata: { name: myName } });
       conn.on("open", () => { registerConn(conn, null); enterRoom(); });
     }
-  });
-
-  peer.on("connection", conn => {
-    conn.on("open", () => registerConn(conn, conn.metadata && conn.metadata.name));
-  });
-
-  peer.on("call", call => {
-    call.answer(); 
-    incomingCalls.set(call.peer, call);
-    
-    call.on("stream", stream => {
-      sharingPeers.add(call.peer);
-      addTile(call.peer, stream);
-    });
-    
-    call.on("close", () => removeTile(call.peer));
   });
 }
 
@@ -102,29 +98,32 @@ $("codeChip").addEventListener("click", () => {
 // --- LER CÓDIGO DA URL AUTOMATICAMENTE ---
 window.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
-  const roomParam = params.get("room");
-  if (roomParam) {
-    $("joinCode").value = roomParam.toUpperCase();
+  
+  // Rota 1: HOST (Veio pelo botão privado do bot no Discord)
+  if (params.has("host") && params.has("name")) {
+    // Pega os dados direto da URL
+    myName = decodeURIComponent(params.get("name"));
+    roomCode = params.get("host").toUpperCase();
+    isHost = true;
+    
+    // Inicia a rede imediatamente, com o ID fixo da sala, ignorando o formulário
+    startPeer(PREFIX + roomCode);
+    
+    // Opcional: Limpa a URL para que se o host atualizar a página (F5), 
+    // não cause re-envios acidentais.
+    window.history.replaceState({}, document.title, "/accord/");
+  } 
+  // Rota 2: CONVIDADO (Veio pelo botão público do Discord)
+  else if (params.has("room")) {
+    isHost = false;
+    $("joinCode").value = params.get("room").toUpperCase();
+    
+    // Apenas preenche o código e foca no nome. 
+    // É crucial NÃO auto-conectar o convidado aqui sem um nome, 
+    // pois conexões anônimas geram os "fantasmas" na lista de membros.
+    $("nameInput").focus(); 
   }
 });
-
-function registerConn(conn, name) {
-  if (members.has(conn.peer)) return;
-  members.set(conn.peer, { conn, name: name || "Convidado" });
-
-  conn.send({ type: "hello", name: myName });
-
-  if (isHost) {
-    const others = [...members.keys()].filter(id => id !== conn.peer);
-    conn.send({ type: "members", list: others });
-  }
-
-  if (localStream) callPeer(conn.peer);
-
-  conn.on("data", msg => handleData(conn.peer, msg));
-  conn.on("close", () => dropMember(conn.peer));
-  renderUsers();
-}
 
 function handleData(fromId, msg) {
   if (msg.type === "hello") {
