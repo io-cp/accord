@@ -1,32 +1,27 @@
-name: Deploy to GitHub Pages
+name: Deploy to GitHub Pages (Main)
 
-'on':
+on:
   push:
     branches: ["main"]
 
+# Mudamos as permissões para "write" para que o bot possa criar a nova branch
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-      
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      # SE você usar algum comando para gerar a pasta /public (como npm run build), 
+      # adicione os passos de Node.js e build aqui. 
+      # Se a pasta /public já fica direto no seu repositório, pode ignorar este aviso.
+
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          path: './public'
-      
-      - name: Deploy to GitHub
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          keep_files: true
