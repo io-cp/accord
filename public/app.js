@@ -92,6 +92,13 @@ function startPeer(fixedId) {
     }
   });
 
+  conn.on("error", (err) => {
+      console.warn("Erro na conexão com o Host:", err);
+      const errorEl = $("landingError");
+      if (errorEl) errorEl.textContent = "Falha ao estabelecer conexão com a sala.";
+      resetJoinButton();
+    });
+
   peer.on("connection", conn => {
     conn.on("open", () => registerConn(conn, conn.metadata && conn.metadata.name));
   });
@@ -139,6 +146,15 @@ function notifyBotRoomReady() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ room: roomCode })
     }).catch(err => console.warn("Erro ao comunicar com o Bot:", err));
+  }
+}
+
+function resetJoinButton() {
+  const btn = $("joinBtn");
+  if (btn) {
+    btn.textContent = "Entrar";
+    btn.style.opacity = "1";
+    btn.style.pointerEvents = "auto";
   }
 }
 
