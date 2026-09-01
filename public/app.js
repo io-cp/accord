@@ -25,12 +25,52 @@ function randomCode() {
   return Array.from(buf, n => CODE_CHARS[n % CODE_CHARS.length]).join("");
 }
 
-function getName() {
-  return $("nameInput").value.trim() || "Convidado-" + Math.floor(Math.random() * 900 + 100);
+// --- VALIDAÇÃO DE NOME OBRIGATÓRIO ---
+function validateName() {
+  const name = $("nameInput").value.trim();
+  const errorEl = $("landingError");
+
+  if (!name) {
+    if (errorEl) errorEl.textContent = "Por favor, digite seu nome para continuar.";
+    $("nameInput").focus();
+    return null;
+  }
+
+  if (errorEl) errorEl.textContent = "";
+  return name;
+}
+
+// --- BOTÃO CRIAR SALA ---
+$("createBtn").addEventListener("click", () => {
+  const name = validateName();
+  if (!name) return;
+
+  myName = name;
+  roomCode = randomCode();
+  isHost = true;
+  startPeer(PREFIX + roomCode);
+});
+
+// --- BOTÃO ENTRAR NA SALA ---
+function joinRoom() {
+  const name = validateName();
+  if (!name) return;
+
+  const code = $("joinCode").value.trim().toUpperCase();
+  if (!code) {
+    if ($("landingError")) $("landingError").textContent = "Por favor, digite o código da sala.";
+    $("joinCode").focus();
+    return;
+  }
+
+  myName = name;
+  roomCode = code;
+  isHost = false;
+  startPeer(null);
 }
 
 $("createBtn").addEventListener("click", () => {
-  myName = getName();
+  myName = validateName();
   roomCode = randomCode();
   isHost = true;
   startPeer(PREFIX + roomCode);
@@ -41,7 +81,7 @@ $("joinBtn").addEventListener("click", joinRoom);
 function joinRoom() {
   const code = $("joinCode").value.trim().toUpperCase();
   if (!code) return;
-  myName = getName();
+  myName = validateName();
   roomCode = code;
   isHost = false;
   startPeer(null);
@@ -103,28 +143,31 @@ $("codeChip").addEventListener("click", () => {
 window.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
   const roomParam = params.get("room");
+  const nameParam = params.get("name");
+
+  // 1. Preenche o nome se vier na URL (decodificando espaços/acentos)
+  if (nameParam) {
+    $("nameInput").value = decodeURIComponent(nameParam);
+  }
+
+  // 2. Se a URL tiver sala, adapta a tela para o modo "Convidado/Join"
   if (roomParam) {
     $("joinCode").value = roomParam.toUpperCase();
+
+    // Esconde a opção de criar sala e a divisória
+    $("createBtn").style.display = "none";
+    const divider = document.querySelector(".divider");
+    if (divider) divider.style.display = "none";
+
+    // Expande o campo e o botão de entrar para ocuparem a largura total
+    const joinRow = document.querySelector(".joinRow");
+    if (joinRow) {
+      joinRow.style.display = "flex";
+      $("joinCode").style.flex = "1";
+      $("joinBtn").style.flex = "1";
+    }
   }
 });
-
-function registerConn(conn, name) {
-  if (members.has(conn.peer)) return;
-  members.set(conn.peer, { conn, name: name || "Convidado" });
-
-  conn.send({ type: "hello", name: myName });
-
-  if (isHost) {
-    const others = [...members.keys()].filter(id => id !== conn.peer);
-    conn.send({ type: "members", list: others });
-  }
-
-  if (localStream) callPeer(conn.peer);
-
-  conn.on("data", msg => handleData(conn.peer, msg));
-  conn.on("close", () => dropMember(conn.peer));
-  renderUsers();
-}
 
 function handleData(fromId, msg) {
   if (msg.type === "hello") {
