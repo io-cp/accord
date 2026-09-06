@@ -25,10 +25,6 @@ function randomCode() {
   return Array.from(buf, n => CODE_CHARS[n % CODE_CHARS.length]).join("");
 }
 
-<<<<<<< Updated upstream
-function getName() {
-  return $("nameInput").value.trim() || "Convidado-" + Math.floor(Math.random() * 900 + 100);
-=======
 // --- VALIDAÇÃO DE NOME OBRIGATÓRIO ---
 function validateName() {
   const name = $("nameInput").value.trim();
@@ -73,7 +69,6 @@ function joinRoom() {
   roomCode = code;
   isHost = false;
   startPeer(null);
->>>>>>> Stashed changes
 }
 
 // --- ROTEAMENTO DE INICIALIZAÇÃO VIA URL (UX Enxuta) ---
@@ -138,8 +133,6 @@ function startPeer(fixedId) {
   peer.on("open", () => {
     if (isHost) {
       enterRoom();
-<<<<<<< Updated upstream
-=======
       
       // Notifica o bot de que a sala do Host está ativa
       fetch("http://localhost:8080/webhook/room_ready", {
@@ -150,7 +143,6 @@ function startPeer(fixedId) {
       .then(() => console.log("Bot notificado: Link público liberado!"))
       .catch(err => console.warn("Aviso: Falha ao notificar o bot.", err));
 
->>>>>>> Stashed changes
     } else {
       const conn = peer.connect(PREFIX + roomCode, { metadata: { name: myName } });
       conn.on("open", () => { registerConn(conn, null); enterRoom(); });
@@ -181,33 +173,6 @@ function enterRoom() {
   renderUsers();
 }
 
-<<<<<<< Updated upstream
-// --- COPIAR LINK DA SALA ---
-$("codeChip").addEventListener("click", () => {
-  const currentUrl = window.location.origin + window.location.pathname;
-  const fullLink = `${currentUrl}?room=${roomCode}`;
-  
-  navigator.clipboard.writeText(fullLink).then(() => {
-    const codeLabel = $("roomCodeLabel");
-    const originalText = codeLabel.textContent;
-    codeLabel.textContent = "COPIADO!";
-    setTimeout(() => {
-      codeLabel.textContent = originalText;
-    }, 2000);
-  });
-});
-
-// --- LER CÓDIGO DA URL AUTOMATICAMENTE ---
-window.addEventListener("DOMContentLoaded", () => {
-  const params = new URLSearchParams(window.location.search);
-  const roomParam = params.get("room");
-  if (roomParam) {
-    $("joinCode").value = roomParam.toUpperCase();
-  }
-});
-
-=======
->>>>>>> Stashed changes
 function registerConn(conn, name) {
   if (members.has(conn.peer)) return;
   members.set(conn.peer, { conn, name: name || "Convidado" });
