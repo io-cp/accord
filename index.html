@@ -85,7 +85,13 @@
   .tile { position: relative; background: #000; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; min-width: 0; min-height: 0; cursor: pointer; }
   .tile.focus { cursor: zoom-out; }
   .tile video { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
-  .tileBar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; padding: 12px; background: linear-gradient(transparent, rgba(0,0,0,.8)); color: white; font-size: 12px; font-weight: bold; }
+  .tileBar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 8px; padding: 12px; background: linear-gradient(transparent, rgba(0,0,0,.86)); color: white; font-size: 12px; font-weight: bold; }
+  .tileName { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .audioControl { display: flex; align-items: center; gap: 7px; opacity: .72; transition: opacity .15s; }
+  .tile:hover .audioControl, .audioControl:focus-within { opacity: 1; }
+  .audioToggle { width: 30px; height: 30px; padding: 0; border: 1px solid rgba(255,255,255,.2); border-radius: 7px; background: rgba(15,23,42,.82); color: white; cursor: pointer; font-size: 15px; }
+  .audioToggle:hover { border-color: var(--cyan); background: rgba(14,165,233,.24); }
+  .audioVolume { width: 82px; accent-color: var(--accent); cursor: pointer; }
   @media (max-width: 700px) {
     #sidebar { width: 190px; }
     header { padding: 0 12px; }
