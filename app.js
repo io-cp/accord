@@ -286,13 +286,42 @@ function addTile(key, stream) {
 
   const bar = document.createElement("div");
   bar.className = "tileBar";
-  bar.textContent = key === "local" ? "Sua Tela (Clique para Expandir)" : `Tela de ${members.get(key)?.name || "Convidado"}`;
+  const nameLabel = document.createElement("span");
+  nameLabel.className = "tileName";
+  nameLabel.textContent = key === "local" ? "Sua Tela" : `Tela de ${members.get(key)?.name || "Convidado"}`;
+  bar.appendChild(nameLabel);
+
+  if (key !== "local") {
+    const audioControl = document.createElement("div");
+    audioControl.className = "audioControl";
+
+    const audioVolume = document.createElement("input");
+    audioVolume.className = "audioVolume";
+    audioVolume.type = "range";
+    audioVolume.min = "0";
+    audioVolume.max = "1";
+    audioVolume.step = "0.05";
+    audioVolume.value = "0";
+    audioVolume.title = "Volume";
+    audioVolume.addEventListener("input", event => changeAudioVolume(event, key));
+
+    const audioButton = document.createElement("button");
+    audioButton.className = "audioToggle";
+    audioButton.type = "button";
+    audioButton.addEventListener("click", event => toggleAudio(event, key));
+
+    audioControl.append(audioVolume, audioButton);
+    bar.appendChild(audioControl);
+    tiles.set(key, { el, video, audioButton, audioVolume });
+  } else {
+    tiles.set(key, { el, video });
+  }
 
   el.append(video, bar);
   el.addEventListener("click", () => toggleFocus(key));
 
   grid.appendChild(el);
-  tiles.set(key, { el, video });
+  updateAudioControl(key);
   layoutGrid();
   renderUsers();
 }
@@ -395,44 +424,13 @@ function renderUsers() {
   
   for (const [key, name] of entries) {
     const sharing = key === "local" ? !!localStream : sharingPeers.has(key);
-    const bar = document.createElement("div");
+    const row = document.createElement("div");
     row.className = "userRow" + (sharing ? " sharing" : "") + (focusedKey === key ? " selected" : "");
-    const nameLabel = document.createElement("span");
-    nameLabel.className = "tileName";
-    nameLabel.textContent = key === "local" ? "Sua Tela" : `Tela de ${members.get(key)?.name || "Convidado"}`;
-    bar.appendChild(nameLabel);
-
-    if (key !== "local") {
-      const audioControl = document.createElement("div");
-      audioControl.className = "audioControl";
-
-      const audioButton = document.createElement("button");
-      audioButton.className = "audioToggle";
-      audioButton.type = "button";
-      audioButton.addEventListener("click", event => toggleAudio(event, key));
-
-      const audioVolume = document.createElement("input");
-      audioVolume.className = "audioVolume";
-      audioVolume.type = "range";
-      audioVolume.min = "0";
-      audioVolume.max = "1";
-      audioVolume.step = "0.05";
-      audioVolume.value = "0";
-      audioVolume.title = "Volume";
-      audioVolume.addEventListener("input", event => changeAudioVolume(event, key));
-
-      audioControl.append(audioVolume, audioButton);
-      bar.appendChild(audioControl);
-      tiles.set(key, { el, video, audioButton, audioVolume });
-    } else {
-      tiles.set(key, { el, video });
-    }
     const av = document.createElement("div");
     av.className = "avatar";
     av.textContent = (name.trim()[0] || "?").toUpperCase();
 
     const info = document.createElement("div");
-    updateAudioControl(key);
     
     const nm = document.createElement("div");
     nm.className = "userName";
