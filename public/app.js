@@ -14,6 +14,8 @@ const sharingPeers = new Set();
 const tiles = new Map();
 let focusedKey = null;
 let localStream = null;
+let activeAudioKey = null;
+const audioVolumes = new Map();
 
 const $ = id => document.getElementById(id);
 const landing = $("landing"), roomEl = $("room"), grid = $("grid"), emptyState = $("emptyState");
@@ -301,6 +303,7 @@ function removeTile(key) {
   t.video.srcObject = null;
   t.el.remove();
   tiles.delete(key);
+  if (activeAudioKey === key) activeAudioKey = null;
   if (focusedKey === key) setFocus(null);
   layoutGrid();
   renderUsers();
@@ -313,7 +316,19 @@ function setFocus(key) {
   for (const [k, t] of tiles) {
     const isFocused = k === focusedKey;
     t.el.classList.toggle("focus", isFocused);
-    if (k !== "local") t.video.muted = !isFocused;
+    if (k !== "local") {
+      t.video.muted = !isFocused || activeAudioKey !== k;
+      t.video.volume = audioVolumes.get(k) ?? 1;
+      updateAudioControl(k);
+    }
+  }
+
+  activeAudioKey = focusedKey && focusedKey !== "local" ? focusedKey : null;
+  for (const [k, t] of tiles) {
+    if (k !== "local") {
+      t.video.muted = activeAudioKey !== k;
+      updateAudioControl(k);
+    }
   }
   
   layoutGrid();
@@ -321,6 +336,48 @@ function setFocus(key) {
 }
 
 function toggleFocus(key) { setFocus(focusedKey === key ? null : key); }
+
+function toggleAudio(event, key) {
+  event.stopPropagation();
+  if (!tiles.has(key)) return;
+
+  activeAudioKey = activeAudioKey === key ? null : key;
+  if (activeAudioKey) {
+    focusedKey = key;
+    grid.classList.add("focused");
+  }
+
+  for (const [currentKey, tile] of tiles) {
+    if (currentKey === "local") continue;
+    tile.video.muted = activeAudioKey !== currentKey;
+    tile.video.volume = audioVolumes.get(currentKey) ?? 1;
+    updateAudioControl(currentKey);
+  }
+  renderUsers();
+}
+
+function changeAudioVolume(event, key) {
+  event.stopPropagation();
+  const volume = Number(event.target.value);
+  audioVolumes.set(key, volume);
+  const tile = tiles.get(key);
+  if (tile) {
+    tile.video.volume = volume;
+    if (volume > 0) activeAudioKey = key;
+    else if (activeAudioKey === key) activeAudioKey = null;
+    tile.video.muted = activeAudioKey !== key;
+  }
+  updateAudioControl(key);
+}
+
+function updateAudioControl(key) {
+  const tile = tiles.get(key);
+  if (!tile || !tile.audioButton) return;
+  const audible = activeAudioKey === key && !tile.video.muted;
+  tile.audioButton.textContent = audible ? "🔊" : "🔇";
+  tile.audioButton.title = audible ? "Mutar áudio" : "Ouvir áudio";
+  tile.audioVolume.value = audible ? String(audioVolumes.get(key) ?? 1) : "0";
+}
 
 function layoutGrid() {
   const n = focusedKey ? 1 : tiles.size;
@@ -338,15 +395,44 @@ function renderUsers() {
   
   for (const [key, name] of entries) {
     const sharing = key === "local" ? !!localStream : sharingPeers.has(key);
-    const row = document.createElement("div");
+    const bar = document.createElement("div");
     row.className = "userRow" + (sharing ? " sharing" : "") + (focusedKey === key ? " selected" : "");
+    const nameLabel = document.createElement("span");
+    nameLabel.className = "tileName";
+    nameLabel.textContent = key === "local" ? "Sua Tela" : `Tela de ${members.get(key)?.name || "Convidado"}`;
+    bar.appendChild(nameLabel);
 
+    if (key !== "local") {
+      const audioControl = document.createElement("div");
+      audioControl.className = "audioControl";
+
+      const audioButton = document.createElement("button");
+      audioButton.className = "audioToggle";
+      audioButton.type = "button";
+      audioButton.addEventListener("click", event => toggleAudio(event, key));
+
+      const audioVolume = document.createElement("input");
+      audioVolume.className = "audioVolume";
+      audioVolume.type = "range";
+      audioVolume.min = "0";
+      audioVolume.max = "1";
+      audioVolume.step = "0.05";
+      audioVolume.value = "0";
+      audioVolume.title = "Volume";
+      audioVolume.addEventListener("input", event => changeAudioVolume(event, key));
+
+      audioControl.append(audioVolume, audioButton);
+      bar.appendChild(audioControl);
+      tiles.set(key, { el, video, audioButton, audioVolume });
+    } else {
+      tiles.set(key, { el, video });
+    }
     const av = document.createElement("div");
     av.className = "avatar";
     av.textContent = (name.trim()[0] || "?").toUpperCase();
 
     const info = document.createElement("div");
-    info.className = "userInfo";
+    updateAudioControl(key);
     
     const nm = document.createElement("div");
     nm.className = "userName";
