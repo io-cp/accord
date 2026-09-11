@@ -25,27 +25,106 @@ function randomCode() {
   return Array.from(buf, n => CODE_CHARS[n % CODE_CHARS.length]).join("");
 }
 
-function getName() {
-  return $("nameInput").value.trim() || "Convidado-" + Math.floor(Math.random() * 900 + 100);
+// --- VALIDAÇÃO DE NOME OBRIGATÓRIO ---
+function validateName() {
+  const name = $("nameInput").value.trim();
+  const errorEl = $("landingError");
+
+  if (!name) {
+    if (errorEl) errorEl.textContent = "Por favor, digite seu nome para continuar.";
+    $("nameInput").focus();
+    return null;
+  }
+
+  if (errorEl) errorEl.textContent = "";
+  return name;
 }
 
+// --- BOTÃO CRIAR SALA ---
 $("createBtn").addEventListener("click", () => {
-  myName = getName();
+  const name = validateName();
+  if (!name) return;
+
+  myName = name;
   roomCode = randomCode();
   isHost = true;
   startPeer(PREFIX + roomCode);
 });
 
+// --- BOTÃO ENTRAR NA SALA ---
 $("joinBtn").addEventListener("click", joinRoom);
 
 function joinRoom() {
+  const name = validateName();
+  if (!name) return;
+
   const code = $("joinCode").value.trim().toUpperCase();
-  if (!code) return;
-  myName = getName();
+  if (!code) {
+    if ($("landingError")) $("landingError").textContent = "Por favor, digite o código da sala.";
+    $("joinCode").focus();
+    return;
+  }
+
+  myName = name;
   roomCode = code;
   isHost = false;
   startPeer(null);
 }
+
+// --- ROTEAMENTO DE INICIALIZAÇÃO VIA URL (UX Enxuta) ---
+window.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(window.location.search);
+  const roomParam = params.get("room");
+  const nameParam = params.get("name");
+  const hostParam = params.get("host");
+
+  if (nameParam) {
+    $("nameInput").value = decodeURIComponent(nameParam);
+  }
+
+  if (hostParam && nameParam) {
+    // Rota 1: HOST (Vem pelo botão privado do bot no Discord)
+    myName = decodeURIComponent(nameParam);
+    roomCode = hostParam.toUpperCase();
+    isHost = true;
+    startPeer(PREFIX + roomCode);
+    window.history.replaceState({}, document.title, window.location.pathname);
+  } else if (roomParam) {
+    // Rota 2: CONVIDADO (Vem pelo link público)
+    isHost = false;
+    $("joinCode").value = roomParam.toUpperCase();
+    
+    // Simplifica a interface ocultando botões desnecessários
+    $("createBtn").style.display = "none";
+    const divider = document.querySelector(".divider");
+    if (divider) divider.style.display = "none";
+
+    const joinRow = document.querySelector(".joinRow");
+    if (joinRow) {
+      joinRow.style.display = "flex";
+      $("joinCode").style.flex = "1";
+      $("joinBtn").style.flex = "1";
+    }
+    
+    // Foca no campo de nome, pois é obrigatório
+    if (!nameParam) $("nameInput").focus();
+  }
+});
+
+// --- COPIAR LINK DA SALA ---
+$("codeChip").addEventListener("click", () => {
+  const currentUrl = window.location.origin + window.location.pathname;
+  const fullLink = `${currentUrl}?room=${roomCode}`;
+  
+  navigator.clipboard.writeText(fullLink).then(() => {
+    const codeLabel = $("roomCodeLabel");
+    const originalText = codeLabel.textContent;
+    codeLabel.textContent = "COPIADO!";
+    setTimeout(() => {
+      codeLabel.textContent = originalText;
+    }, 2000);
+  });
+});
 
 function startPeer(fixedId) {
   peer = fixedId ? new Peer(fixedId, { config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] } })
@@ -54,6 +133,16 @@ function startPeer(fixedId) {
   peer.on("open", () => {
     if (isHost) {
       enterRoom();
+      
+      // Notifica o bot de que a sala do Host está ativa
+      fetch("http://localhost:8080/webhook/room_ready", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ room: roomCode })
+      })
+      .then(() => console.log("Bot notificado: Link público liberado!"))
+      .catch(err => console.warn("Aviso: Falha ao notificar o bot.", err));
+
     } else {
       const conn = peer.connect(PREFIX + roomCode, { metadata: { name: myName } });
       conn.on("open", () => { registerConn(conn, null); enterRoom(); });
@@ -83,30 +172,6 @@ function enterRoom() {
   $("roomCodeLabel").textContent = roomCode;
   renderUsers();
 }
-
-// --- COPIAR LINK DA SALA ---
-$("codeChip").addEventListener("click", () => {
-  const currentUrl = window.location.origin + window.location.pathname;
-  const fullLink = `${currentUrl}?room=${roomCode}`;
-  
-  navigator.clipboard.writeText(fullLink).then(() => {
-    const codeLabel = $("roomCodeLabel");
-    const originalText = codeLabel.textContent;
-    codeLabel.textContent = "COPIADO!";
-    setTimeout(() => {
-      codeLabel.textContent = originalText;
-    }, 2000);
-  });
-});
-
-// --- LER CÓDIGO DA URL AUTOMATICAMENTE ---
-window.addEventListener("DOMContentLoaded", () => {
-  const params = new URLSearchParams(window.location.search);
-  const roomParam = params.get("room");
-  if (roomParam) {
-    $("joinCode").value = roomParam.toUpperCase();
-  }
-});
 
 function registerConn(conn, name) {
   if (members.has(conn.peer)) return;

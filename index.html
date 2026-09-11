@@ -3,26 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>P2P ScreenShare</title>
+<title>Accord ScreenShare</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <style>
 :root {
-    --bg: #0d1117;           /* Fundo principal escuro profundo */
-    --panel: #161b22;        /* Sidebar e painéis levemente destacados */
-    --panel-2: #21262d;      /* Fundo de itens selecionados e modais */
-    --border: #30363d;       /* Bordas sutis para separar os painéis */
-    --text: #c9d1d9;         /* Texto cinza claro (evita o branco puro) */
-    --text-dim: #8b949e;     /* Textos secundários mais apagados */
-    --accent: #238636;       /* Verde confortável para o botão de ação */
-    --accent-2: #2ea043;     /* Verde ligeiramente mais claro no hover */
-    --red: #da3633;          /* Vermelho dessaturado para 'Parar' */
-    --radius: 12px;
-    --header-h: 60px;
+    --bg: #161922;
+    --panel: #1e222d;
+    --panel-2: #262b38;
+    --border: #334155;
+    --text: #f1f5f9;
+    --text-dim: #94a3b8;
+    --accent: #f59e0b;
+    --accent-2: #d97706;
+    --cyan: #0ea5e9;
+    --red: #ef4444;
+    --radius: 10px;
+    --header-h: 64px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
-    background: var(--bg);
+    background: radial-gradient(circle at 50% -15%, rgba(14,165,233,.12), transparent 42%), var(--bg);
     color: var(--text);
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
     overflow: hidden;
@@ -32,18 +33,21 @@
   }
   button { font-family: inherit; }
 
-  #landing { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
-  .card { width: 100%; max-width: 380px; background: var(--panel); padding: 30px; border-radius: var(--radius); box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid var(--border); display: flex; flex-direction: column; }
-  .logo h1 { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
-  .sub { color: var(--text-dim); font-size: 13px; margin-bottom: 24px; line-height: 1.4; }
+  #landing { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; background: radial-gradient(circle at center, rgba(14,165,233,.12), transparent 62%); }
+  .card { width: 100%; max-width: 420px; background: rgba(30,34,45,.94); padding: 34px; border-radius: var(--radius); box-shadow: 0 24px 70px rgba(0,0,0,.34); border: 1px solid var(--border); display: flex; flex-direction: column; }
+  .logo { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .logo::before { content: "A"; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: var(--amber-gold); color: #111827; font-weight: 900; }
+  .logo h1 { font-size: 24px; font-weight: 750; letter-spacing: -.3px; color: var(--text); }
+  .sub { color: var(--text-dim); font-size: 13px; margin-bottom: 26px; line-height: 1.5; }
   .field { margin-bottom: 14px; text-align: left; }
   .field label { display: block; font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; margin-bottom: 6px; }
-  input[type=text] { width: 100%; background: #fff; border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 12px; font-size: 14px; outline: none; }
-  input[type=text]:focus { border-color: var(--accent); }
+  input[type=text] { width: 100%; background: #161922; border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 12px; font-size: 14px; outline: none; transition: border-color .15s, box-shadow .15s; }
+  input[type=text]::placeholder { color: #64748b; }
+  input[type=text]:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(14,165,233,.12); }
   #joinCode { text-transform: uppercase; letter-spacing: 4px; font-family: monospace; font-weight: 700; text-align: center; }
 
-  .btn { border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; color: #fff; background: var(--accent); transition: background .15s; }
-  .btn:hover { background: var(--accent-2); }
+  .btn { border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 750; cursor: pointer; color: #111827; background: var(--accent); transition: background .15s, transform .15s; }
+  .btn:hover { background: var(--accent-2); transform: translateY(-1px); }
   .btn.ghost { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
   .btn.block { width: 100%; }
   .divider { display: flex; align-items: center; gap: 10px; color: var(--text-dim); font-size: 11px; text-transform: uppercase; margin: 20px 0; }
@@ -51,24 +55,24 @@
   .joinRow { display: flex; gap: 8px; }
 
   #room { display: none; flex: 1; flex-direction: column; min-height: 0; }
-  header { height: var(--header-h); flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid var(--border); background: var(--panel); }
+  header { height: var(--header-h); flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid var(--border); background: rgba(30,34,45,.96); }
   .codeChip { display: flex; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; cursor: pointer; color: var(--text); }
-  .codeChip .code { font-family: monospace; font-size: 14px; font-weight: 700; color: var(--accent-2); }
+  .codeChip .code { font-family: monospace; font-size: 14px; font-weight: 700; color: var(--accent); }
   .spacer { flex: 1; }
-  #shareBtn { border: none; border-radius: 6px; padding: 8px 16px; font-size: 13.5px; font-weight: 700; cursor: pointer; color: #fff; background: var(--accent); }
+  #shareBtn { border: none; border-radius: 6px; padding: 8px 16px; font-size: 13.5px; font-weight: 700; cursor: pointer; color: #111827; background: var(--accent); }
   #shareBtn.sharing { background: var(--red); }
   #leaveBtn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-  #leaveBtn:hover { background: #ffebee; color: var(--red); border-color: var(--red); }
+  #leaveBtn:hover { background: rgba(239,68,68,.12); color: #fca5a5; border-color: var(--red); }
 
   #main { flex: 1; min-height: 0; display: flex; }
-  #sidebar { width: 260px; flex-shrink: 0; border-right: 1px solid var(--border); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+  #sidebar { width: 260px; flex-shrink: 0; border-right: 1px solid var(--border); background: rgba(30,34,45,.82); display: flex; flex-direction: column; min-height: 0; }
   .sideHead { padding: 16px 16px 8px; font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; }
   #userList { flex: 1; overflow-y: auto; padding: 0 8px 8px; }
   .userRow { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; margin-bottom: 4px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--text); text-align: left; }
   .userRow.sharing { cursor: pointer; background: var(--panel-2); border-color: var(--border); }
-  .userRow.selected { border-color: var(--accent); }
+  .userRow.selected { border-color: var(--cyan); box-shadow: inset 3px 0 var(--cyan); }
   .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--border); display: grid; place-items: center; font-size: 12px; font-weight: 700; flex-shrink: 0; color: var(--text); }
-  .userRow.sharing .avatar { background: var(--accent); color: #fff; }
+  .userRow.sharing .avatar { background: var(--cyan); color: #fff; }
   .userInfo { flex: 1; min-width: 0; }
   .userName { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .userStatus { font-size: 11px; color: var(--text-dim); }
@@ -82,14 +86,27 @@
   .tile.focus { cursor: zoom-out; }
   .tile video { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
   .tileBar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; padding: 12px; background: linear-gradient(transparent, rgba(0,0,0,.8)); color: white; font-size: 12px; font-weight: bold; }
+  @media (max-width: 700px) {
+    #sidebar { width: 190px; }
+    header { padding: 0 12px; }
+    #stageArea { padding: 10px; }
+    .card { padding: 26px; }
+  }
+  @media (max-width: 520px) {
+    #sidebar { display: none; }
+    .codeChip { padding: 6px 9px; }
+    #shareBtn { padding: 8px 10px; }
+    #shareBtn .btnLabel { font-size: 0; }
+    #shareBtn .btnLabel::after { content: "Compartilhar"; font-size: 13px; }
+  }
 </style>
 </head>
 <body>
 
 <div id="landing">
   <div class="card">
-    <div class="logo"><h1>P2P ScreenShare</h1></div>
-    <div class="sub">Compartilhamento de tela direto ponto a ponto. Sem contas ou cadastros.</div>
+    <div class="logo"><h1>Accord ScreenShare</h1></div>
+    <div class="sub">Compartilhamento de tela direto entre amigos. Sem contas ou cadastros.</div>
     <div class="field">
       <label for="nameInput">Seu Nome</label>
       <input type="text" id="nameInput" maxlength="24" placeholder="Como outros vão te ver" autocomplete="off">
